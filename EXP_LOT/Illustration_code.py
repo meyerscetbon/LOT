@@ -1,13 +1,7 @@
 import numpy as np
-import ot
-import ot.plot
 import LinSinkhorn
-import time
 import matplotlib.pyplot as plt
-import scipy
-from matplotlib import gridspec
-from sklearn.neighbors import KernelDensity
-from ot.datasets import make_1D_gauss as gauss
+
 
 
 def Illustrative_example(n, m, sigma_x1=1, sigma_x2=1, sigma_y1=2, sigma_y2=2, seed=49):
