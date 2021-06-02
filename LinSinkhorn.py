@@ -1511,16 +1511,6 @@ def Lin_LOT_MD(
 
 #################### Cost Matrix #####################
 
-## Feature map of k(x,y) = \langle x,y\rangle ** 2 ##
-def Feature_Map_Poly(X):
-    n, d = np.shape(X)
-    X_new = np.zeros((n, d ** 2))
-    for i in range(n):
-        x = X[i, :][:, None]
-        X_new[i, :] = np.dot(x, x.T).reshape(-1)
-    return X_new
-
-
 def Square_Euclidean_Distance(X, Y):
     """Returns the matrix of $|x_i-y_j|^2$."""
     X_col = X[:, np.newaxis]
