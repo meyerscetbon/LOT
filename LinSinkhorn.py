@@ -22,16 +22,6 @@ def KL(A, B):
     return np.sum(A * Ratio_trans)
 
 
-# Metric used in the MIT paper
-def compute_SE_OT(X, Y, Q, R, g):
-    Q_trans = Q / np.sqrt(g)
-    R_trans = R / np.sqrt(g)
-    A = np.dot(X.T, Q_trans)
-    B = np.dot(Y.T, R_trans)
-    res = np.sum((A - B) ** 2)
-    return res
-
-
 def Sinkhorn(C, reg, a, b, max_iter=1000, delta=1e-3, lam=0, time_out=200):
     start = time.time()
     acc = []
@@ -245,7 +235,6 @@ def UpdateHubs(X, Y, gamma_1, gamma_2):
 
 
 # Here cost is a function
-# Here we have assumed that to compute each entries of thecost matrix it takes O(d)
 def UpdatePlans(X, Y, Z, a, b, reg, cost, max_iter=1000, delta=1e-9, lam=0):
 
     C1 = cost(Z, X)  # d * n * r
@@ -543,14 +532,6 @@ def UpdatePlans_Matrix(C1, C2, a, b, reg, max_iter=1000, delta=1e-9, lam=0):
     gamma_1 = u1.reshape((-1, 1)) * K1 * v1.reshape((1, -1))
     gamma_2 = u2.reshape((-1, 1)) * K2 * v2.reshape((1, -1))
     return gamma_1.T, gamma_2.T, w
-
-
-def UpdateHubs(X, Y, gamma_1, gamma_2):
-    Z = np.dot(gamma_1, X) + np.dot(gamma_2, Y)
-    norm = np.sum(gamma_1 + gamma_2, axis=1)
-    Z = (Z.T / norm).T
-
-    return Z
 
 
 # Here cost is a function: only the Squared Euclidean is legal
@@ -901,6 +882,7 @@ def LR_Dykstra_LSE_Sin(
     return Q, R, g, count_op
 
 
+
 def LR_IBP_Sin(K1, K2, K3, a, b, max_iter=1000, delta=1e-9, lam=0):
     Q = K1
     R = K2
@@ -931,7 +913,6 @@ def LR_IBP_Sin(K1, K2, K3, a, b, max_iter=1000, delta=1e-9, lam=0):
             v2_trans = np.dot(K2.T, u2)  # m * r
 
             # Update g
-            # g = g / np.sum(g)
             g = (g * v1 * v1_trans * v2 * v2_trans) ** (1 / 3)  # 5 * r
 
             # Update v1
@@ -939,10 +920,6 @@ def LR_IBP_Sin(K1, K2, K3, a, b, max_iter=1000, delta=1e-9, lam=0):
 
             # Update v2
             v2 = g / v2_trans  # r
-
-            # Update the couplings
-            # Q = u1.reshape((-1, 1)) * K1 * v1.reshape((1, -1))
-            # R = u2.reshape((-1, 1)) * K2 * v2.reshape((1, -1))
 
             # Update the error
             u1_trans = np.dot(K1, v1)
