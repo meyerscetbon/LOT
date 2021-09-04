@@ -10,7 +10,7 @@ We propose an efficient algorithm to solve the problem and show on  several exam
 ![figure](results/fig_algo.pdf)
 
 
-Our regularization can take advantage of the geometry of the problem, in particular when the cost matrix involved in the optimal transport problem admits a low-rank factorization. In this case, our method is able to compute the OT cost in linear time with respect to the number of samples. We present the time-accuracy tradeoff between different methods to compute the OT when the samples.
+Our regularization can take advantage of the geometry of the problem, in particular when the cost matrix involved in the optimal transport problem admits a low-rank factorization. In this case, our method is able to compute the OT cost in linear time with respect to the number of samples. We present the time-accuracy tradeoff between different methods to compute the OT cost when the samples are drawn from two Gaussian distributions evaluated on $n = m = 5000$ in 2D.
 ![figure](results/plot_accuracy_LR_vs_All.pdf)
 
 
