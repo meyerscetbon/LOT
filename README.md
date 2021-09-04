@@ -13,5 +13,7 @@ We propose an efficient algorithm to solve the problem and show on  several exam
 Our regularization can take advantage of the geometry of the problem, in particular when the cost matrix involved in the optimal transport problem admits a low-rank factorization. In this case, our method is able to compute the OT cost in linear time with respect to the number of samples. We present the time-accuracy tradeoff between different methods to compute the OT cost when the samples are drawn from two Gaussian distributions evaluated on 5000 points in 2D.
 ![figure](results/plot_accuracy_LR_vs_All.pdf)
 
+We also compare the couplings obtained by the Sinkhorn algorithm and our proposed method when varying their hyperparameters by computing their L1 distance.
+![figure](results/plot_L1_LR_vs_Sin.pdf)
 
 This repository contains a Python implementation of the algorithms presented in the [paper](https://arxiv.org/pdf/2103.04737.pdf).
