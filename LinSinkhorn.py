@@ -2,7 +2,7 @@ import numpy as np
 import time
 from sklearn.cluster import KMeans
 import scipy
-from scipy import special
+from scipy import special 
 
 
 # Here C = C1 * C2 and P = P1 * P2
