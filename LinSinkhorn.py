@@ -1,12 +1,12 @@
 import numpy as np
 import time
-import FastGromovWass
 from sklearn.cluster import KMeans
 import scipy
+from scipy import special
 
 
 # Here C = C1 * C2 and P = P1 * P2
-# Useful for Kernel-based methods
+# Useful for kernel-based methods
 def compute_OT(P1, P2, C1, C2):
     OT_trans_1 = np.dot(P1.T, C1)
     OT_trans_2 = np.dot(C2, P2.T)
@@ -238,10 +238,10 @@ def UpdateHubs(X, Y, gamma_1, gamma_2):
 def UpdatePlans(X, Y, Z, a, b, reg, cost, max_iter=1000, delta=1e-9, lam=0):
 
     C1 = cost(Z, X)  # d * n * r
-    K1 = np.exp(-C1 / reg)  # size: r x n
+    K1 = np.exp(-C1 / reg)  # r x n
 
     C2 = cost(Z, Y)  # d * m * r
-    K2 = np.exp(-C2 / reg)  # size: r x m
+    K2 = np.exp(-C2 / reg)  # r x m
 
     r = np.shape(Z)[0]
     u1, u2 = np.ones(r), np.ones(r)
@@ -302,25 +302,13 @@ def UpdatePlans(X, Y, Z, a, b, reg, cost, max_iter=1000, delta=1e-9, lam=0):
         else:
             gamma_1 = u1.reshape((-1, 1)) * K1 * v1.reshape((1, -1))
             gamma_2 = u2.reshape((-1, 1)) * K2 * v2.reshape((1, -1))
-            n, m, d = np.shape(X)[0], np.shape(Y)[0], np.shape(Z)[1]
-            count_op = (
-                (n_iter + 1) * (2 * n * r + 2 * m * r + 6 * r + n + m)
-                + (d + 2) * n * r
-                + (d + 2) * m * r
-                + r
-            )
-            return gamma_1, gamma_2, w, count_op
+
+            return gamma_1, gamma_2, w
 
     gamma_1 = u1.reshape((-1, 1)) * K1 * v1.reshape((1, -1))
     gamma_2 = u2.reshape((-1, 1)) * K2 * v2.reshape((1, -1))
-    n, m, d = np.shape(X)[0], np.shape(Y)[0], np.shape(Z)[1]
-    count_op = (
-        (n_iter + 1) * (2 * n * r + 2 * m * r + 6 * r + n + m)
-        + (d + 2) * n * r
-        + (d + 2) * m * r
-        + r
-    )
-    return gamma_1, gamma_2, w, count_op
+
+    return gamma_1, gamma_2, w
 
 
 # Here cost is a function
@@ -602,25 +590,14 @@ def FactoredOT(
             # Update the Hubs
             Z = UpdateHubs(X, Y, gamma1, gamma2)
 
-            # Update the total cost
-
-            # Metric used in the MIT paper
-            # OT_trans = compute_SE_OT(X,Y,gamma1.T,gamma2.T,w)
-
-            # Classical OT
+            #  Update the total cost
             C_trans = np.dot(C, gamma2.T)
             C_trans = C_trans / w
             G = np.dot(gamma1, C_trans)
             OT_trans = np.trace(G)
 
             if niter > 10:
-                ## Update the error: theoritical error
-                # err_1 = ((1/gamma)**2) * (KL(Q,Q_prev) + KL(Q_prev,Q))
-                # err_2 = ((1/gamma)**2) * (KL(R,R_prev) + KL(R_prev,R))
-                # err_3 = ((1/gamma)**2) * (KL(g,g_prev) + KL(g_prev,g))
-                # err = err_1 + err_2 + err_3
-
-                ## Update the error: Practical error
+                ## Update the error
                 err = np.abs(OT_trans - acc[-1]) / acc[-1]
 
                 if np.isnan(err):
@@ -724,21 +701,12 @@ def LR_Dykstra_Sin(K1, K2, K3, a, b, alpha, max_iter=1000, delta=1e-9, lam=0):
         else:
             Q = u1.reshape((-1, 1)) * K1 * v1.reshape((1, -1))
             R = u2.reshape((-1, 1)) * K2 * v2.reshape((1, -1))
-            n, m = np.shape(K1)[0], np.shape(K2)[0]
-            count_op = (
-                (n_iter + 1) * (20 * r + 2 * n * r + 2 * m * r + n + m)
-                + 2 * n * r
-                + 2 * m * r
-            )
-            return Q, R, g, count_op
+            return Q, R, g
 
     Q = u1.reshape((-1, 1)) * K1 * v1.reshape((1, -1))
     R = u2.reshape((-1, 1)) * K2 * v2.reshape((1, -1))
-    n, m = np.shape(K1)[0], np.shape(K2)[0]
-    count_op = (
-        (n_iter + 1) * (20 * r + 2 * n * r + 2 * m * r + n + m) + 2 * n * r + 2 * m * r
-    )
-    return Q, R, g, count_op
+
+    return Q, R, g
 
 
 def LR_Dykstra_LSE_Sin(
@@ -750,12 +718,8 @@ def LR_Dykstra_LSE_Sin(
     g1_old, g2_old = np.zeros(r), np.zeros(r)
     f1, f2 = np.zeros(np.shape(a)[0]), np.zeros(np.shape(b)[0])
 
-    w_gi, w_gp = np.zeros(r), np.zeros(
-        r
-    )  # q_gi, q_gp = np.exp(gamma * w_gi), np.exp(gamma * w_gp)
-    w_Q, w_R = np.zeros(r), np.zeros(
-        r
-    )  # q_Q, q_R = np.exp(gamma * w_Q), np.exp(gamma * w_R)
+    w_gi, w_gp = np.zeros(r), np.zeros(r)
+    w_Q, w_R = np.zeros(r), np.zeros(r)
 
     err = 1
     n_iter = 0
@@ -855,32 +819,12 @@ def LR_Dykstra_LSE_Sin(
                 R = np.exp(C2_tilde)
 
                 g = np.exp(gamma * h)
-
-                n, m = np.shape(C1)[0], np.shape(C2)[0]
-                count_op = (
-                    (n_iter) * (8 * n * r + 8 * m * r + 4 * n + 4 * m + 27 * r)
-                    + 4 * n * r
-                    + 4 * m * r
-                )
-                return Q, R, g, count_op
+                return Q, R, g
 
         else:
-            n, m = np.shape(C1)[0], np.shape(C2)[0]
-            count_op = (
-                (n_iter + 1) * (8 * n * r + 8 * m * r + 4 * n + 4 * m + 27 * r)
-                + 4 * n * r
-                + 4 * m * r
-            )
-            return Q, R, g, count_op
+            return Q, R, g
 
-    n, m = np.shape(C1)[0], np.shape(C2)[0]
-    count_op = (
-        (n_iter + 1) * (8 * n * r + 8 * m * r + 4 * n + 4 * m + 27 * r)
-        + 4 * n * r
-        + 4 * m * r
-    )
-    return Q, R, g, count_op
-
+    return Q, R, g
 
 
 def LR_IBP_Sin(K1, K2, K3, a, b, max_iter=1000, delta=1e-9, lam=0):
@@ -948,23 +892,16 @@ def LR_IBP_Sin(K1, K2, K3, a, b, max_iter=1000, delta=1e-9, lam=0):
         else:
             Q = u1.reshape((-1, 1)) * K1 * v1.reshape((1, -1))
             R = u2.reshape((-1, 1)) * K2 * v2.reshape((1, -1))
-            n, m = np.shape(K1)[0], np.shape(K2)[0]
-            count_op = (
-                (n_iter + 1) * (2 * n * r + 2 * m * r + 7 * r) + 3 * n * r + 3 * m * r
-            )
-            return Q, R, g, count_op
+            return Q, R, g
 
     Q = u1.reshape((-1, 1)) * K1 * v1.reshape((1, -1))
     R = u2.reshape((-1, 1)) * K2 * v2.reshape((1, -1))
-    n, m = np.shape(K1)[0], np.shape(K2)[0]
-    count_op = (n_iter + 1) * (2 * n * r + 2 * m * r + 7 * r) + 3 * n * r + 3 * m * r
-    return Q, R, g, count_op
+    return Q, R, g
 
 
-# Only for quadratic cost
-# If C_init == True: cost is the Matrix
-# If C_init == False: cost is the Function
-# Init == 'trivial', 'random', 'kmeans'
+# If C_init == True: cost is the cost matrix
+# If C_init == False: cost is the cost function
+# Init == 'trivial', 'random', 'kmeans
 def Quad_LOT_MD(
     X,
     Y,
@@ -989,12 +926,9 @@ def Quad_LOT_MD(
     time_out=200,
 ):
     start = time.time()
-    num_op = 0
     acc = []
     times = []
-    list_num_op = []
 
-    r = rank
     n, m = np.shape(a)[0], np.shape(b)[0]
 
     if C_init == False:
@@ -1012,10 +946,7 @@ def Quad_LOT_MD(
         g = np.ones(rank) / rank
         kmeans = KMeans(n_clusters=rank, random_state=0).fit(X)
         Z = kmeans.cluster_centers_
-        num_iter_kmeans = kmeans.n_iter_
-        num_op = num_op + num_iter_kmeans * rank * np.shape(X)[0] + rank
-        reg_init = reg_init
-        gamma1, gamma2, g, count_op_Barycenter = UpdatePlans(
+        gamma1, gamma2, g = UpdatePlans(
             X,
             Y,
             Z,
@@ -1028,7 +959,6 @@ def Quad_LOT_MD(
             lam=lam_IBP,
         )
         Q, R = gamma1.T, gamma2.T
-        num_op = num_op + count_op_Barycenter
 
     # Init random
     if Init == "random":
@@ -1048,7 +978,6 @@ def Quad_LOT_MD(
         R = np.abs(np.random.randn(m, rank))
         R = R + 1  # m * r
         R = (R.T * (b / np.sum(R, axis=1))).T  # m + m * r
-        num_op = num_op + 2 * n * r + 2 * m * r + m + n + 2 * r
 
     ###  Trivial Init
     if Init == "trivial":
@@ -1073,8 +1002,6 @@ def Quad_LOT_MD(
         R = lambda_1 * np.dot(b1[:, None], g1.reshape(1, -1)) + (1 - lambda_1) * np.dot(
             b2[:, None], g2.reshape(1, -1)  # 4 * m * r
         )
-
-        num_op = num_op + 4 * n * r + 4 * m * r + 3 * n + 3 * m + 3 * r
 
     if gamma_init == "theory":
         L_trans = (2 / (alpha) ** 4) * (np.linalg.norm(C) ** 2)
@@ -1106,8 +1033,6 @@ def Quad_LOT_MD(
             omega = np.diag(np.dot(Q.T, K1_trans_0))  # r * n * r
             C3_trans = omega / (g ** 2) - (reg - (1 / gamma)) * np.log(g)  # 4 * r
 
-            num_op = num_op + 2 * n * m * r + r * n * r + 3 * n * r + 3 * m * r + 4 * r
-
             # Update the coupling
             if method == "IBP":
                 K1 = np.exp((-gamma) * C1_trans)
@@ -1128,8 +1053,7 @@ def Quad_LOT_MD(
                 K1 = np.exp((-gamma) * C1_trans)
                 K2 = np.exp((-gamma) * C2_trans)
                 K3 = np.exp(gamma * C3_trans)
-                num_op = num_op + 2 * n * r + 2 * m * r + 2 * r
-                Q, R, g, count_op_Dysktra = LR_Dykstra_Sin(
+                Q, R, g = LR_Dykstra_Sin(
                     K1,
                     K2,
                     K3,
@@ -1141,10 +1065,8 @@ def Quad_LOT_MD(
                     lam=lam_IBP,
                 )
 
-                num_op = num_op + count_op_Dysktra
-
             if method == "Dykstra_LSE":
-                Q, R, g, count_op_Dysktra_LSE = LR_Dykstra_LSE_Sin(
+                Q, R, g = LR_Dykstra_LSE_Sin(
                     C1_trans,
                     C2_trans,
                     C3_trans,
@@ -1157,26 +1079,13 @@ def Quad_LOT_MD(
                     lam=lam_IBP,
                 )
 
-                num_op = num_op + count_op_Dysktra_LSE
-
             # Update the total cost
-
-            # Metric used in the MIT paper
-            # OT_trans = compute_SE_OT(X,Y,Q,R,g)
-
-            # Classical OT
             C_trans = np.dot(C, R)
             C_trans = C_trans / g
             G = np.dot(Q.T, C_trans)
             OT_trans = np.trace(G)
 
             if niter > 10:
-                ## Update the error: theoritical error
-                # err_1 = ((1/gamma)**2) * (KL(Q,Q_prev) + KL(Q_prev,Q))
-                # err_2 = ((1/gamma)**2) * (KL(R,R_prev) + KL(R_prev,R))
-                # err_3 = ((1/gamma)**2) * (KL(g,g_prev) + KL(g_prev,g))
-                # err = err_1 + err_2 + err_3
-
                 ## Update the error: Practical error
                 err = np.abs(OT_trans - acc[-1]) / acc[-1]
 
@@ -1196,13 +1105,11 @@ def Quad_LOT_MD(
                 end = time.time()
                 tim_actual = end - start
                 times.append(tim_actual)
-                list_num_op.append(num_op)
                 if tim_actual > time_out:
                     return (
                         acc[-1],
                         np.array(acc),
                         np.array(times),
-                        np.array(list_num_op),
                         Q,
                         R,
                         g,
@@ -1212,13 +1119,12 @@ def Quad_LOT_MD(
                 acc[-1],
                 np.array(acc),
                 np.array(times),
-                np.array(list_num_op),
                 Q,
                 R,
                 g,
             )
 
-    return acc[-1], np.array(acc), np.array(times), np.array(list_num_op), Q, R, g
+    return acc[-1], np.array(acc), np.array(times), Q, R, g
 
 
 # gamma_init = 'theory', 'regularization', 'arbitrary'
@@ -1251,12 +1157,9 @@ def Lin_LOT_MD(
     time_out=200,
 ):
     start = time.time()
-    num_op = 0
     acc = []
     times = []
-    list_num_op = []
 
-    r = rank
     n, m = np.shape(a)[0], np.shape(b)[0]
 
     if C_init == False:
@@ -1278,9 +1181,6 @@ def Lin_LOT_MD(
         g = np.ones(rank) / rank
         kmeans = KMeans(n_clusters=rank, random_state=0).fit(X)
         Z = kmeans.cluster_centers_
-        num_iter_kmeans = kmeans.n_iter_
-        num_op = num_op + r + num_iter_kmeans * r * n
-        reg_init = reg_init
         gamma1, gamma2, g, count_op_Barycenter = UpdatePlans(
             X,
             Y,
@@ -1294,7 +1194,6 @@ def Lin_LOT_MD(
             lam=lam_IBP,
         )
         Q, R = gamma1.T, gamma2.T
-        num_op = num_op + count_op_Barycenter
 
     ## Init random
     if Init == "random":
@@ -1316,8 +1215,6 @@ def Lin_LOT_MD(
         R = np.abs(np.random.randn(m, rank))
         R = R + 1
         R = (R.T * (b / np.sum(R, axis=1))).T
-
-        num_op = num_op + 2 * n * r + 2 * m * r + m + n + 2 * r
 
     ## Init trivial
     if Init == "trivial":
@@ -1342,8 +1239,6 @@ def Lin_LOT_MD(
         R = lambda_1 * np.dot(b1[:, None], g1.reshape(1, -1)) + (1 - lambda_1) * np.dot(
             b2[:, None], g2.reshape(1, -1)
         )
-
-        num_op = num_op + 4 * n * r + 4 * m * r + 3 * n + 3 * m + 3 * r
     #####################################
 
     if gamma_init == "theory":
@@ -1384,16 +1279,6 @@ def Lin_LOT_MD(
             omega = np.diag(np.dot(Q.T, K1_trans_0))  # r * n * r
             C3_trans = (omega / (g ** 2)) - (reg - (1 / gamma)) * np.log(g)  # 4 * r
 
-            num_op = (
-                num_op
-                + 2 * n * d * r
-                + 2 * m * d * r
-                + r * n * r
-                + 3 * n * r
-                + 3 * m * r
-                + 4 * r
-            )
-
             # Update the coupling
             if method == "IBP":
                 K1 = np.exp((-gamma) * C1_trans)
@@ -1414,8 +1299,7 @@ def Lin_LOT_MD(
                 K1 = np.exp((-gamma) * C1_trans)
                 K2 = np.exp((-gamma) * C2_trans)
                 K3 = np.exp(gamma * C3_trans)
-                num_op = num_op + 2 * n * r + 2 * m * r + 2 * r
-                Q, R, g, count_op_Dysktra = LR_Dykstra_Sin(
+                Q, R, g = LR_Dykstra_Sin(
                     K1,
                     K2,
                     K3,
@@ -1427,10 +1311,8 @@ def Lin_LOT_MD(
                     lam=lam_IBP,
                 )
 
-                num_op = num_op + count_op_Dysktra
-
             if method == "Dykstra_LSE":
-                Q, R, g, count_op_Dysktra_LSE = LR_Dykstra_LSE_Sin(
+                Q, R, g = LR_Dykstra_LSE_Sin(
                     C1_trans,
                     C2_trans,
                     C3_trans,
@@ -1442,8 +1324,6 @@ def Lin_LOT_MD(
                     delta=delta_IBP,
                     lam=lam_IBP,
                 )
-
-                num_op = num_op + count_op_Dysktra_LSE
 
             # Update the total cost
 
@@ -1483,13 +1363,11 @@ def Lin_LOT_MD(
                 end = time.time()
                 tim_actual = end - start
                 times.append(end - start)
-                list_num_op.append(num_op)
                 if tim_actual > time_out:
                     return (
                         acc[-1],
                         np.array(acc),
                         np.array(times),
-                        np.array(list_num_op),
                         Q,
                         R,
                         g,
@@ -1500,23 +1378,22 @@ def Lin_LOT_MD(
                 acc[-1],
                 np.array(acc),
                 np.array(times),
-                np.array(list_num_op),
                 Q,
                 R,
                 g,
             )
 
-    return acc[-1], np.array(acc), np.array(times), np.array(list_num_op), Q, R, g
+    return acc[-1], np.array(acc), np.array(times), Q, R, g
 
 
 #################### Cost Matrix #####################
+
 
 def Square_Euclidean_Distance(X, Y):
     """Returns the matrix of $|x_i-y_j|^2$."""
     X_col = X[:, np.newaxis]
     Y_lin = Y[np.newaxis, :]
     C = np.sum((X_col - Y_lin) ** 2, 2)
-    # D = (np.sum(X ** 2, 1)[:, np.newaxis] - 2 * np.dot(X, Y.T) + np.sum(Y ** 2, 1))
     return C
 
 
@@ -1543,7 +1420,6 @@ def Euclidean_Distance(X, Y):
     Y_lin = Y[np.newaxis, :]
     C = np.sum((X_col - Y_lin) ** 2, 2)
     C = np.sqrt(C)
-    # D = (np.sum(X ** 2, 1)[:, np.newaxis] - 2 * np.dot(X, Y.T) + np.sum(Y ** 2, 1))
     return C
 
 
@@ -1552,7 +1428,6 @@ def Lp_Distance(X, Y, p=1):
     Y_lin = Y[np.newaxis, :]
     C = np.sum(np.abs(X_col - Y_lin) ** p, 2)
     C = C ** (1 / p)
-    # D = (np.sum(X ** 2, 1)[:, np.newaxis] - 2 * np.dot(X, Y.T) + np.sum(Y ** 2, 1))
     return C
 
 
@@ -1647,3 +1522,72 @@ def factorized_distance_cost(X, Y, rank, cost, C_init=False, tol=1e-3, seed=49):
     V = Learning_linear_subspace(X, Y, cost, U.T, C_init=C_init, tol=tol)
 
     return V, U.T
+
+
+# Approximate the kernel k(x,y) = exp(TU/\varepsilon)
+def RF_Approx(T, U, reg, num_samples=100, seed=49):
+    R = np.minimum(theoritical_R(T, U.T), 100)
+    A = Feature_Map_Gaussian(T, reg, R, num_samples=num_samples, seed=seed)
+    B = Feature_Map_Gaussian(U.T, reg, R, num_samples=num_samples, seed=seed).T
+
+    n, d = np.shape(T)
+    m, d = np.shape(U.T)
+
+    return A, B
+
+
+def theoritical_R(X, Y):
+    norm_X = np.linalg.norm(X, axis=1)  # n * d
+    norm_Y = np.linalg.norm(Y, axis=1)  # m * d
+    norm_max = np.maximum(np.max(norm_X), np.max(norm_Y))  # n + m
+
+    return norm_max
+
+
+## Feature map of k(x,y) = exp(\langle x,y\rangle/\varepsilon) ##
+def Feature_Map_Gaussian(X, reg, R, num_samples=100, seed=49, tresh=700):
+    n, d = np.shape(X)
+
+    y = R ** 2 / (2 * reg * d)
+    q = np.real((1 / 2) * np.exp(special.lambertw(y)))
+
+    C = (2 * q) ** (d / 4)
+
+    var = (q * reg) / 2
+
+    np.random.seed(seed)
+    U = np.random.multivariate_normal(np.zeros(d), var * np.eye(d), num_samples)
+    SED = Square_Euclidean_Distance(X, U)  # d * n * num_samples
+    W = -(SED) / reg  # n * num_samples
+    V = np.sum(U ** 2, axis=1) / (2 * reg * q)  # num_samples * d + num_samples
+    Z = np.sum(X ** 2, axis=1) / (2 * reg)  # n * d + n
+
+    res_trans = V + W  # n * num_samples
+    res_trans = np.minimum((Z + res_trans.T).T, tresh)  # 2 * n * num_samples
+    res_trans = C * np.exp(res_trans)  # 2 * n * num_samples
+
+    res = (1 / np.sqrt(num_samples)) * res_trans  # n * num_samples
+
+    return res
+
+
+# Uniform Random Nyström
+# Here we approximate the SDP matrix exp(XX.T/\varepsilon)
+def Nys_approx(X, Y, reg, rank, seed=49, stable=1e-10):
+    n, d = np.shape(X)
+    m, d = np.shape(Y)
+    n_tot = n + m
+    Z = np.concatenate((X, Y), axis=0)
+
+    rank_trans = int(np.minimum(rank, n_tot))
+
+    np.random.seed(seed)
+    ind = np.random.choice(n_tot, rank_trans, replace=False)
+    ind = np.sort(ind)
+
+    Z_1 = Z[ind, :]
+    A = np.exp(np.dot(Z_1, Z_1.T) / reg)
+    A = A + stable * np.eye(rank_trans)
+    V = np.exp(np.dot(Z, Z_1.T) / reg)
+
+    return A, V
