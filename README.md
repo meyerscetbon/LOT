@@ -3,7 +3,8 @@ Code of the paper by Meyer Scetbon, Marco Cuturi and Gabriel Peyré.
 
 ## A New Regularization Scheme for computing Efficiently the Optimal Transport Cost
 In this work, we propose to regularize the optimal transport (OT) problem by adding a low-rank constraint on the couplings. In the following figure, we compare the couplings obtained by the Sinkhorn algorithm and by our proposed scheme.
-![figure](results/couplings_intro.pdf)
+<embed src="results/couplings_intro.pdf" type="application/pdf">
+
 
 We propose an efficient algorithm to solve the problem and show on  several examples that our method outperforms the Sinkhorn algorithm in term of time-accuracy tradeoff. In the following figure we illustrate the main difference between our proposed algorithm and the Sinkhorn one.
 ![figure](results/fig_algo.pdf)
