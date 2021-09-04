@@ -5,7 +5,7 @@ Code of the paper by Meyer Scetbon, Marco Cuturi and Gabriel Peyré.
 In this work, we propose to regularize the optimal transport (OT) problem by adding a low-rank constraint on the couplings. In the following figure, we compare the couplings obtained by the Sinkhorn algorithm and by our proposed scheme.
 ![figure](results/couplings_intro.jpg)
 
-We propose an efficient algorithm to solve the problem and show on  several examples that our method outperforms the Sinkhorn algorithm in term of time-accuracy tradeoff. In the following figure we illustrate the main differences between our proposed algorithm and the Sinkhorn one.
+We propose an efficient algorithm to solve the optimal transport problem under low-rank constraints and show on several examples that our method outperforms the Sinkhorn algorithm in term of time-accuracy tradeoff. In the following figure we illustrate the main differences between our proposed algorithm and the Sinkhorn one.
 ![figure](results/fig_algo.jpg)
 
 
