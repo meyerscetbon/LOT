@@ -1,5 +1,5 @@
 # Low-Rank Sinkhorn Factorization 
-Code of the paper by Meyer Scetbon, Marco Cuturi and Gabriel Peyré.
+Code of the [paper](https://arxiv.org/pdf/2103.04737.pdf) by Meyer Scetbon, Marco Cuturi and Gabriel Peyré.
 
 ## A New Regularization Scheme for computing Efficiently the Optimal Transport Cost
 In this work, we propose to regularize the optimal transport (OT) problem by adding a low-rank constraint on the couplings. In the following figure, we compare the couplings obtained by the Sinkhorn algorithm and by our proposed scheme.
