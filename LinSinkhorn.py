@@ -2,7 +2,7 @@ import numpy as np
 import time
 from sklearn.cluster import KMeans
 import scipy
-from scipy import special 
+from scipy import special
 
 
 # Here C = C1 * C2 and P = P1 * P2
@@ -130,7 +130,7 @@ def Lin_RF_Sinkhorn(C1, C2, reg, a, b, rank, seed=49, max_iter=1000, delta=1e-3,
     acc = []
     times = []
 
-    A, B = FastGromovWass.RF_Approx(-C1, C2, reg, num_samples=rank, seed=seed)
+    A, B = RF_Approx(-C1, C2, reg, num_samples=rank, seed=seed)
 
     v = np.ones(np.shape(b)[0])
     u_trans = np.dot(A, np.dot(B, v)) + lam
@@ -180,7 +180,7 @@ def Lin_Nys_Sinkhorn(
     acc = []
     times = []
 
-    V1, V2 = FastGromovWass.Nys_approx(-C1, C2.T, reg, rank, seed=seed, stable=1e-10)
+    V1, V2 = Nys_approx(-C1, C2.T, reg, rank, seed=seed, stable=1e-10)
     A = np.dot(V2, np.linalg.inv(V1))
     A = A[: len(a), :]
     B = V2.T
