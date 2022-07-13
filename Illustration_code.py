@@ -1,4 +1,8 @@
+import sys
+
+sys.path.append("./LOT_github/")
 import numpy as np
+import utils
 import LinSinkhorn
 import matplotlib.pyplot as plt
 
@@ -6,14 +10,14 @@ import matplotlib.pyplot as plt
 ## Toy example: a function generating two 1D distributions
 def Illustrative_example(n, m, sigma_x1=1, sigma_x2=1, sigma_y1=2, sigma_y2=2, seed=49):
     xa = np.arange(n)
-    a = np.exp(-((xa - int(n / 3)) ** 2) / sigma_x1 ** 2) + 1.5 * np.exp(
-        -((xa - int(5 * n / 6)) ** 2) / sigma_x2 ** 2
+    a = np.exp(-((xa - int(n / 3)) ** 2) / sigma_x1**2) + 1.5 * np.exp(
+        -((xa - int(5 * n / 6)) ** 2) / sigma_x2**2
     )
     a = a / np.sum(a)
 
     xb = np.arange(m)
-    b = 2 * np.exp(-((xb - int(m / 5)) ** 2) / sigma_y1 ** 2) + np.exp(
-        -((xb - int(2 * m / 4)) ** 2) / sigma_y2 ** 2
+    b = 2 * np.exp(-((xb - int(m / 5)) ** 2) / sigma_y1**2) + np.exp(
+        -((xb - int(2 * m / 4)) ** 2) / sigma_y2**2
     )
     b = b / np.sum(b)
 
@@ -21,13 +25,11 @@ def Illustrative_example(n, m, sigma_x1=1, sigma_x2=1, sigma_y1=2, sigma_y2=2, s
 
 
 ## Define the cost functions: here we give several examples
-Square_Euclidean_cost = lambda X, Y: LinSinkhorn.Square_Euclidean_Distance(X, Y)
-Square_Euclidean_factorized_cost = lambda X, Y: LinSinkhorn.factorized_square_Euclidean(
-    X, Y
-)
-Euclidean_cost = lambda X, Y: LinSinkhorn.Euclidean_Distance(X, Y)
-L1_cost = lambda X, Y: LinSinkhorn.Lp_Distance(X, Y, p=1)
-Lp_cost = lambda X, Y: LinSinkhorn.Lp_Distance(X, Y, p=1.5)
+Square_Euclidean_cost = lambda X, Y: utils.Square_Euclidean_Distance(X, Y)
+Square_Euclidean_factorized_cost = lambda X, Y: utils.factorized_square_Euclidean(X, Y)
+Euclidean_cost = lambda X, Y: utils.Euclidean_Distance(X, Y)
+L1_cost = lambda X, Y: utils.Lp_Distance(X, Y, p=1)
+Lp_cost = lambda X, Y: utils.Lp_Distance(X, Y, p=1.5)
 
 ## Pick one cost
 cost = Square_Euclidean_cost
@@ -36,7 +38,7 @@ cost = Square_Euclidean_cost
 tol = 1e-1
 rank_cost = 100
 C_init = False
-cost_factorized = lambda X, Y: LinSinkhorn.factorized_distance_cost(
+cost_factorized = lambda X, Y: utils.factorized_distance_cost(
     X, Y, rank_cost, cost, C_init=C_init, tol=tol, seed=49
 )
 
@@ -50,27 +52,17 @@ X, Y = np.arange(n).reshape(-1, 1), np.arange(m).reshape(-1, 1)
 a, b = Illustrative_example(n, m, sigma_x1=25, sigma_x2=15, sigma_y1=30, sigma_y2=35)
 
 
-## Compute the cost matrix
-C = cost(X, Y)
-
-## Compute its low-rank factorization
-C1, C2 = cost_factorized(X, Y)
-
-
-## Normalize the cost matrices
-norm = np.max(C)
-C = C / norm
-C1, C2 = C1 / np.sqrt(norm), C2 / np.sqrt(norm)
-
-
 ## Compute the couplings obtained by Sinkhorn algorithm for multiple regularizations
 list_P_Sin = []
 regs = [0.001, 0.005, 0.05, 0.5]
-
 v_max = 0
 v_min = 1
+
+## Compute the cost matrix
+C = cost(X, Y)
+
 for reg in regs:
-    res, acc_Sin, times_Sin, P_Sin = LinSinkhorn.Sinkhorn(
+    res, acc_Sin, times_Sin, P_Sin, num_ops = utils.Sinkhorn(
         C, reg, a, b, max_iter=100, delta=1e-9, lam=0, time_out=50
     )
     v_min = min(np.min(P_Sin), v_min)
@@ -81,9 +73,6 @@ for reg in regs:
 ## Compute the couplings obtained by LOT for multiple ranks
 list_P_LOT = []
 ranks = [3, 10, 50, 100]
-reg_LR = 0
-alpha = 1e-10
-cost_factorized = (C1, C2)
 
 for rank in ranks:
     ## Linear version
@@ -93,56 +82,31 @@ for rank in ranks:
         a,
         b,
         rank,
-        reg_LR,
-        alpha,
         cost,
         cost_factorized,
-        Init="trivial",
+        reg=0,
+        alpha=1e-10,
+        gamma_0=10,
+        max_iter=1000,
+        delta=1e-3,
+        time_out=200,
+        Init="kmeans",
         seed_init=49,
-        C_init=True,
+        C_init=False,
         reg_init=1e-1,
-        gamma_init="arbitrary",
-        gamma_0=100,
+        gamma_init="rescale",
         method="Dykstra",
-        max_iter=100,
-        delta=1e-9,
         max_iter_IBP=10000,
         delta_IBP=1e-3,
         lam_IBP=0,
-        time_out=50,
+        rescale_cost=True,
     )
 
-    ## Quadratic version
-    # results = LinSinkhorn.Quad_LOT_MD(
-    #     X,
-    #     Y,
-    #     a,
-    #     b,
-    #     rank,
-    #     reg_LR,
-    #     alpha,
-    #     C,
-    #     C_init=True,
-    #     Init="trivial",
-    #     seed_init=49,
-    #     reg_init=1e-1,
-    #     gamma_init="arbitrary",
-    #     gamma_0=100,
-    #     method="Dykstra",
-    #     max_iter=100,
-    #     delta=1e-9,
-    #     max_iter_IBP=10000,
-    #     delta_IBP=1e-3,
-    #     lam_IBP=0,
-    #     time_out=50,
-    # )
-
-    if results != "Error":
-        res, accs, times, Q, R, g = results
-        P_LOT = np.dot(Q / g, R.T)
-        v_min = min(np.min(P_LOT), v_min)
-        v_max = max(np.max(P_LOT), v_max)
-        list_P_LOT.append(P_LOT)
+    res, accs, times, num_ops, num_criterions, Q, R, g = results
+    P_LOT = np.dot(Q / g, R.T)
+    v_min = min(np.min(P_LOT), v_min)
+    v_max = max(np.max(P_LOT), v_max)
+    list_P_LOT.append(P_LOT)
 
 
 ## Plot the comparison of couplings

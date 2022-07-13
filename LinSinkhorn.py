@@ -15,9 +15,11 @@ def KL(A, B):
 def UpdatePlans(X, Y, Z, a, b, reg, cost, max_iter=1000, delta=1e-9, lam=0):
 
     C1 = cost(Z, X)  # d * n * r
+    C1 = C1 / C1.max()
     K1 = np.exp(-C1 / reg)  # size: r x n
 
     C2 = cost(Z, Y)  # d * m * r
+    C2 = C2 / C2.max()
     K2 = np.exp(-C2 / reg)  # size: r x m
 
     r = np.shape(Z)[0]
@@ -71,7 +73,7 @@ def UpdatePlans(X, Y, Z, a, b, reg, cost, max_iter=1000, delta=1e-9, lam=0):
             ):
                 # we have reached the machine precision
                 # come back to previous solution and quit loop
-                print("Warning: numerical errors at iteration", n_iter)
+                print("Warning: numerical errors UpdatePlans at iteration", n_iter)
                 u1, v1 = u1_prev, v1_prev
                 u2, v2 = u2_prev, v2_prev
                 w = w_prev
@@ -162,7 +164,7 @@ def LR_Dykstra_Sin(K1, K2, K3, a, b, alpha, max_iter=1000, delta=1e-9, lam=0):
             ):
                 # we have reached the machine precision
                 # come back to previous solution and quit loop
-                print("Error Dykstra: ", n_iter)
+                print("Warning: numerical error in Dykstra at iteration: ", n_iter)
                 u1, v1 = u1_prev, v1_prev
                 u2, v2 = u2_prev, v2_prev
                 g = g_prev
@@ -286,7 +288,7 @@ def LR_Dykstra_LSE_Sin(
             ):
                 # we have reached the machine precision
                 # come back to previous solution and quit loop
-                print("Warning: error in Dykstra at iteration", n_iter)
+                print("Warning: numerical error in Dykstra LSE at iteration", n_iter)
                 f1, g1 = f1_prev, g1_prev
                 f2, g2 = f2_prev, g2_prev
                 h = h_prev
@@ -390,7 +392,7 @@ def LR_IBP_Sin(K1, K2, K3, a, b, max_iter=1000, delta=1e-9, lam=0):
             ):
                 # we have reached the machine precision
                 # come back to previous solution and quit loop
-                print("Warning: numerical errors at iteration", n_iter)
+                print("Warning: numerical errors in IBP at iteration", n_iter)
                 u1, v1 = u1_prev, v1_prev
                 u2, v2 = u2_prev, v2_prev
                 g = g_prev
@@ -881,20 +883,27 @@ def Quad_LOT_MD(
             niter = niter + 1
 
             K1_trans_0 = np.dot(C, R)  # n * m * r
-            grad_Q = K1_trans_0 / g + reg * np.log(Q)
+            grad_Q = K1_trans_0 / g
+            if reg != 0:
+                grad_Q = grad_Q + reg * np.log(Q)
             if gamma_init == "rescale":
                 # norm_1 = np.linalg.norm(grad_Q)**2
                 norm_1 = np.max(np.abs(grad_Q)) ** 2
 
             K2_trans_0 = np.dot(C.T, Q)  # m * n * r
-            grad_R = K2_trans_0 / g + reg * np.log(R)
+            grad_R = K2_trans_0 / g
+            if reg != 0:
+                grad_R = grad_R + reg * np.log(R)
             if gamma_init == "rescale":
                 # norm_2 = np.linalg.norm(grad_R)**2
                 norm_2 = np.max(np.abs(grad_R)) ** 2
 
             omega = np.diag(np.dot(Q.T, K1_trans_0))  # r * n * r
             C3_trans = omega / (g**2)
-            grad_g = -omega / (g**2) + reg * np.log(g)
+            grad_g = -omega / (g**2)
+            if reg != 0:
+                grad_g = grad_g + reg * np.log(g)
+
             if gamma_init == "rescale":
                 # norm_3 = np.linalg.norm(grad_g)**2
                 norm_3 = np.max(np.abs(grad_g)) ** 2
@@ -1007,11 +1016,9 @@ def Quad_LOT_MD(
     return acc[-1], np.array(acc), np.array(times), np.array(list_num_op), Q, R, g
 
 
-# gamma_init = 'theory', 'regularization', 'arbitrary'
-# method = 'IBP', 'Dykstra', 'Dykstra_LSE'
-# If C_init = True: cost_factorized = C1,C2
+# If C_init = True: cost_factorized = (C1, C2, C_X_1, C_X_2, C_Y_1, C_Y_2)
 # If C_init = False: cost_factorized is a function
-# Init = 'trivial', kmeans', 'random'
+# Init = 'trivial', 'random', 'kmeans', 'general_kmeans'
 def Lin_LOT_MD(
     X,
     Y,
@@ -1022,9 +1029,9 @@ def Lin_LOT_MD(
     cost_factorized,
     reg=0,
     alpha=1e-10,
-    gamma_0=1,
-    max_iter=100,
-    delta=1e-100,
+    gamma_0=10,
+    max_iter=1000,
+    delta=1e-3,
     time_out=200,
     Init="kmeans",
     seed_init=49,
@@ -1197,7 +1204,6 @@ def Lin_LOT_MD(
         )
         L = np.sqrt(3 * L_trans)
         gamma = 1 / L
-        print(gamma)
 
     if gamma_init == "regularization":
         gamma = 1 / reg
@@ -1229,19 +1235,27 @@ def Lin_LOT_MD(
 
             K1_trans_0 = np.dot(C2, R)  # d * m * r
             K1_trans_0 = np.dot(C1, K1_trans_0)  # n * d * r
-            grad_Q = K1_trans_0 / g + reg * np.log(Q)
+            grad_Q = K1_trans_0 / g
+            if reg != 0.0:
+                grad_Q = grad_Q + reg * np.log(Q)
 
             if gamma_init == "rescale":
                 norm_1 = np.max(np.abs(grad_Q)) ** 2
 
             K2_trans_0 = np.dot(C1.T, Q)  # d * n * r
             K2_trans_0 = np.dot(C2.T, K2_trans_0)  # m * d * r
-            grad_R = K2_trans_0 / g + reg * np.log(R)
+            grad_R = K2_trans_0 / g
+            if reg != 0.0:
+                grad_R = grad_R + reg * np.log(R)
+
             if gamma_init == "rescale":
                 norm_2 = np.max(np.abs(grad_R)) ** 2
 
             omega = np.diag(np.dot(Q.T, K1_trans_0))  # r * n * r
-            grad_g = -omega / (g**2) + reg * np.log(g)
+            grad_g = -omega / (g**2)
+            if reg != 0.0:
+                grad_g = grad_g + reg * np.log(g)
+
             if gamma_init == "rescale":
                 norm_3 = np.max(np.abs(grad_g)) ** 2
 
@@ -1331,7 +1345,7 @@ def Lin_LOT_MD(
             err_2 = ((1 / gamma) ** 2) * (KL(R, R_prev) + KL(R_prev, R))
             err_3 = ((1 / gamma) ** 2) * (KL(g, g_prev) + KL(g_prev, g))
             criterion = err_1 + err_2 + err_3
-            print(criterion)
+            # print(criterion)
 
             if niter > 1:
                 if criterion > delta / 1e-1:

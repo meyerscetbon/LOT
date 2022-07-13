@@ -1,6 +1,5 @@
 import numpy as np
 import time
-import FastGromovWass
 from sklearn.cluster import KMeans
 import sklearn
 import scipy
@@ -27,17 +26,21 @@ def compute_SE_OT(X, Y, Q, R, g):
     return res
 
 
-def Sinkhorn(C, reg, a, b, max_iter=1000, delta=1e-3, lam=0, time_out=200):
+def Sinkhorn(
+    C, reg, a, b, C_init=False, max_iter=1000, delta=1e-3, lam=0, time_out=200
+):
     start = time.time()
     acc = []
     times = []
+
+    C = C / C.max()
     n, m = np.shape(a)[0], np.shape(b)[0]
 
-    # K = np.exp(-C/reg)
+    K = np.exp(-C / reg)
     # Next 3 lines equivalent to K= np.exp(-C/reg), but faster to compute
-    K = np.empty(C.shape, dtype=C.dtype)
-    np.divide(C, -reg, out=K)
-    np.exp(K, out=K)
+    # K = np.empty(C.shape, dtype=C.dtype)
+    # np.divide(C, -reg, out=K)
+    # np.exp(K, out=K)
     P = K.copy()
     v = np.ones(np.shape(b)[0])
     u_trans = np.dot(K, v) + lam  # add regularization to avoid divide 0
@@ -73,7 +76,7 @@ def Sinkhorn(C, reg, a, b, max_iter=1000, delta=1e-3, lam=0, time_out=200):
             # Update the error
             u_trans = np.dot(K, v) + lam
             err = np.sum(np.abs(u * u_trans - a))
-            print(err)
+            # print(err)
 
             if np.isnan(err) == True:
                 print("Error Sinkhorn: ", n_iter)
@@ -96,6 +99,7 @@ def Sinkhorn_LSE(C, reg, a, b, max_iter=1000, delta=1e-3, lam=0, time_out=200):
     acc = []
     times = []
 
+    C = C / C.max()
     n, m = np.shape(a)[0], np.shape(b)[0]
 
     f = np.zeros(n)
