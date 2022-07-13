@@ -17,6 +17,7 @@ def compute_OT(P1, P2, C1, C2):
     res = np.trace(OT_trans)
     return res
 
+
 def compute_SE_OT(X, Y, Q, R, g):
     Q_trans = Q / np.sqrt(g)
     R_trans = R / np.sqrt(g)
@@ -24,7 +25,6 @@ def compute_SE_OT(X, Y, Q, R, g):
     B = np.dot(Y.T, R_trans)
     res = np.sum((A - B) ** 2)
     return res
-
 
 
 def Sinkhorn(C, reg, a, b, max_iter=1000, delta=1e-3, lam=0, time_out=200):
@@ -91,8 +91,6 @@ def Sinkhorn(C, reg, a, b, max_iter=1000, delta=1e-3, lam=0, time_out=200):
     return acc[-1], np.array(acc), np.array(times), P, num_op
 
 
-
-
 def Sinkhorn_LSE(C, reg, a, b, max_iter=1000, delta=1e-3, lam=0, time_out=200):
     start = time.time()
     acc = []
@@ -103,7 +101,7 @@ def Sinkhorn_LSE(C, reg, a, b, max_iter=1000, delta=1e-3, lam=0, time_out=200):
     f = np.zeros(n)
     g = np.zeros(m)
 
-    C_trans =  - C / reg
+    C_trans = -C / reg
     P = np.exp(C_trans)
     OT_trans = np.sum(P * C)
     acc.append(OT_trans)
@@ -140,7 +138,6 @@ def Sinkhorn_LSE(C, reg, a, b, max_iter=1000, delta=1e-3, lam=0, time_out=200):
                 P = P_prev
                 break
 
-
             # Update the error
             err = np.sum(np.abs(np.sum(P, axis=1) - a))
             if np.isnan(err) == True:
@@ -155,9 +152,8 @@ def Sinkhorn_LSE(C, reg, a, b, max_iter=1000, delta=1e-3, lam=0, time_out=200):
         else:
             break
 
-    num_ops =  3 * n * m + (n_iter + 1) * (2 * n * m + n + m)
+    num_ops = 3 * n * m + (n_iter + 1) * (2 * n * m + n + m)
     return acc[-1], np.array(acc), np.array(times), P, num_ops
-
 
 
 # Linear RF Sinkhorn: C = C1 * C2
@@ -206,7 +202,6 @@ def Lin_RF_Sinkhorn(C1, C2, reg, a, b, rank, seed=49, max_iter=1000, delta=1e-3,
             return acc[-1], np.array(acc), np.array(times), P1, P2
 
     return acc[-1], np.array(acc), np.array(times), P1, P2
-
 
 
 # Linear Nys Sinkhorn: C = C1 * C2
@@ -261,7 +256,6 @@ def Lin_Nys_Sinkhorn(
             return acc[-1], np.array(acc), np.array(times), P1, P2
 
     return acc[-1], np.array(acc), np.array(times), P1, P2
-
 
 
 def UpdateHubs(X, Y, gamma_1, gamma_2):
@@ -482,7 +476,6 @@ def UpdatePlans_Matrix(C1, C2, a, b, reg, max_iter=1000, delta=1e-9, lam=0):
     return gamma_1.T, gamma_2.T, w
 
 
-
 # Here cost is a function: only the Squared Euclidean is legal
 def FactoredOT(
     X,
@@ -603,7 +596,6 @@ def FactoredOT(
     return acc[-1], np.array(acc), np.array(times), gamma1.T, gamma2.T, w
 
 
-
 def LR_Dykstra(K1, K2, K3, gamma, a, b, alpha, max_iter=1000, delta=1e-9, lam=0):
     Q = K1
     R = K2
@@ -636,7 +628,8 @@ def LR_Dykstra(K1, K2, K3, gamma, a, b, alpha, max_iter=1000, delta=1e-9, lam=0)
             v1_trans = np.dot(K1.T, u1)
             v2_trans = np.dot(K2.T, u2)
             g = (g_old * q_gp * v1_old * q_Q * v1_trans * v2_old * q_R * v2_trans) ** (
-                1 / 3)
+                1 / 3
+            )
             v1 = g / (v1_trans + lam)
             v2 = g / (v2_trans + lam)
             q_gp = (g_old * q_gp) / (g + lam)
@@ -674,55 +667,62 @@ def LR_Dykstra(K1, K2, K3, gamma, a, b, alpha, max_iter=1000, delta=1e-9, lam=0)
             Q = u1.reshape((-1, 1)) * K1 * v1.reshape((1, -1))
             R = u2.reshape((-1, 1)) * K2 * v2.reshape((1, -1))
             n, m = np.shape(K1)[0], np.shape(K2)[0]
-            return Q, R, g, np.log(u1), np.log(v1),  np.log(u2), np.log(v2)
+            return Q, R, g, np.log(u1), np.log(v1), np.log(u2), np.log(v2)
 
     Q = u1.reshape((-1, 1)) * K1 * v1.reshape((1, -1))
     R = u2.reshape((-1, 1)) * K2 * v2.reshape((1, -1))
     n, m = np.shape(K1)[0], np.shape(K2)[0]
-    return Q, R, g, np.log(u1) / gamma, np.log(v1) / gamma,  np.log(u2) / gamma, np.log(v2) / gamma
-
+    return (
+        Q,
+        R,
+        g,
+        np.log(u1) / gamma,
+        np.log(v1) / gamma,
+        np.log(u2) / gamma,
+        np.log(v2) / gamma,
+    )
 
 
 #################### Cost Matrix #####################
 ## Feature map of k(x,y) = \langle x,y\rangle ** 2 ##
 def Feature_Map_Poly(X):
     n, d = np.shape(X)
-    X_new = np.zeros((n,d**2))
+    X_new = np.zeros((n, d**2))
     for i in range(n):
-        x = X[i,:][:,None]
-        X_new[i,:] = np.dot(x,x.T).reshape(-1)
+        x = X[i, :][:, None]
+        X_new[i, :] = np.dot(x, x.T).reshape(-1)
     return X_new
 
-def theoritical_R(X,Y):
-    norm_X = np.linalg.norm(X,axis=1)
-    norm_Y = np.linalg.norm(Y,axis=1)
-    norm_max = np.maximum(np.max(norm_X),np.max(norm_Y))
+
+def theoritical_R(X, Y):
+    norm_X = np.linalg.norm(X, axis=1)
+    norm_Y = np.linalg.norm(Y, axis=1)
+    norm_max = np.maximum(np.max(norm_X), np.max(norm_Y))
 
     return norm_max
 
 
 ### Random Feature Maps of RBF Kernel
-def Feature_Map_Gaussian(X,reg,R=1,num_samples=100,seed=49):
+def Feature_Map_Gaussian(X, reg, R=1, num_samples=100, seed=49):
     n, d = np.shape(X)
 
-    y = R**2/ ( reg * d )
-    q = np.real( (1/2) * np.exp( special.lambertw(y) ) )
-    C = (2*q) ** (d/4)
+    y = R**2 / (reg * d)
+    q = np.real((1 / 2) * np.exp(special.lambertw(y)))
+    C = (2 * q) ** (d / 4)
 
-
-    var = ( q * reg ) / 4
+    var = (q * reg) / 4
 
     np.random.seed(seed)
-    U = np.random.multivariate_normal(np.zeros(d), var * np.eye(d), num_samples )
+    U = np.random.multivariate_normal(np.zeros(d), var * np.eye(d), num_samples)
 
     SED = Square_Euclidean_Distance(X, U)
-    W = - ( 2 * SED ) / reg
-    V =  np.sum(U**2,axis=1) / ( reg * q )
+    W = -(2 * SED) / reg
+    V = np.sum(U**2, axis=1) / (reg * q)
 
     res_trans = V + W
     res_trans = C * np.exp(res_trans)
 
-    res = (1/np.sqrt(num_samples)) * res_trans
+    res = (1 / np.sqrt(num_samples)) * res_trans
 
     return res
 
@@ -739,12 +739,12 @@ def Square_Euclidean_Distance(X, Y):
 # shape of xs: num_samples * dimension
 def factorized_square_Euclidean(xs, xt):
 
-    square_norm_s = np.sum(xs ** 2, axis=1) # 2 * n * d
-    square_norm_t = np.sum(xt ** 2, axis=1) # 2 * m * d
+    square_norm_s = np.sum(xs**2, axis=1)  # 2 * n * d
+    square_norm_t = np.sum(xt**2, axis=1)  # 2 * m * d
     A_1 = np.zeros((np.shape(xs)[0], 2 + np.shape(xs)[1]))
     A_1[:, 0] = square_norm_s
     A_1[:, 1] = np.ones(np.shape(xs)[0])
-    A_1[:, 2:] = -2 * xs # n * d
+    A_1[:, 2:] = -2 * xs  # n * d
 
     A_2 = np.zeros((2 + np.shape(xs)[1], np.shape(xt)[0]))
     A_2[0, :] = np.ones(np.shape(xt)[0])
@@ -771,10 +771,12 @@ def Lp_Distance(X, Y, p=1):
     # D = (np.sum(X ** 2, 1)[:, np.newaxis] - 2 * np.dot(X, Y.T) + np.sum(Y ** 2, 1))
     return C
 
+
 def rbf_distance(X):
     kernel = sklearn.metrics.pairwise.rbf_kernel(X)
     D = 1 - kernel
     return D
+
 
 def Learning_linear_subspace(X, Y, cost, U, C_init=False, tol=1e-3):
     rank, m = np.shape(U)
@@ -818,22 +820,22 @@ def factorized_distance_cost(X, Y, rank, cost, C_init=False, tol=1e-3, seed=49):
     if C_init == False:
         X_trans = X[i_, :]
         if np.shape(X_trans)[0] != 1:
-            X_trans = X_trans[np.newaxis,:]
+            X_trans = X_trans[np.newaxis, :]
         cost_trans_i = cost(X_trans, Y)
-        mean = np.mean(cost_trans_i ** 2)
+        mean = np.mean(cost_trans_i**2)
     else:
         cost_trans_i = cost[i_, :]
-        mean = np.mean(cost_trans_i ** 2)
+        mean = np.mean(cost_trans_i**2)
 
     if C_init == False:
         Y_trans = Y[j_, :]
         if np.shape(Y_trans)[0] != 1:
-            Y_trans = Y_trans[np.newaxis,:]
+            Y_trans = Y_trans[np.newaxis, :]
         cost_trans_j = cost(X, Y_trans)
     else:
         cost_trans_j = cost[:, j_]
 
-    p_row = cost_trans_j ** 2 + cost_trans_i[0, j_] ** 2 + mean
+    p_row = cost_trans_j**2 + cost_trans_i[0, j_] ** 2 + mean
     p_row = p_row / np.sum(p_row)  # vector of size n
 
     # Compute S
@@ -846,12 +848,12 @@ def factorized_distance_cost(X, Y, rank, cost, C_init=False, tol=1e-3, seed=49):
     p_row_sub = p_row[ind_row]
     S = S / np.sqrt(int(rank / tol) * p_row_sub)
 
-    norm_square_S = np.sum(S ** 2)
+    norm_square_S = np.sum(S**2)
     p_column = np.zeros(m)
     for j in range(m):
         p_column[j] = np.sum(S[:, j] ** 2) / norm_square_S
 
-    p_column = p_column / np.sum(p_column) # vector of size m
+    p_column = p_column / np.sum(p_column)  # vector of size m
     # Compute W
     ind_column = np.random.choice(m, size=int(rank / tol), p=p_column.reshape(-1))
     W = S[:, ind_column]  # k/tol x k/tol
@@ -863,7 +865,7 @@ def factorized_distance_cost(X, Y, rank, cost, C_init=False, tol=1e-3, seed=49):
     U = u[:, :rank]  # k/tol x k
     U_trans = np.dot(W.T, U)  # k/tol x k
 
-    norm_U = np.sum(U_trans ** 2, axis=0)
+    norm_U = np.sum(U_trans**2, axis=0)
     norm_U = np.sqrt(norm_U)
 
     U = np.dot(S.T, U)  # m x k
@@ -875,12 +877,13 @@ def factorized_distance_cost(X, Y, rank, cost, C_init=False, tol=1e-3, seed=49):
     return V, U.T
 
 
-
 # compute the connectivity matrix of a distance matrix
-def k_smallest_by_row(D,k=50):
-    ind_D = np.argpartition(D,k)
-    ind_D_trans = ind_D[:,:k]
-    row_indices = tuple(np.full(len(col_index), i) for i, col_index in enumerate(ind_D_trans))
+def k_smallest_by_row(D, k=50):
+    ind_D = np.argpartition(D, k)
+    ind_D_trans = ind_D[:, :k]
+    row_indices = tuple(
+        np.full(len(col_index), i) for i, col_index in enumerate(ind_D_trans)
+    )
     row_indices = np.concatenate(row_indices)
     col_indices = np.concatenate(ind_D_trans)
     mask = np.zeros((np.shape(D)[0], np.shape(D)[1]))
@@ -888,50 +891,51 @@ def k_smallest_by_row(D,k=50):
 
     return mask
 
+
 ## shortest path distance for graphs
-def shortest_path_distance(X,graph_type='kneighbors_graph', n_neighbors=10):
-    if graph_type == 'kneighbors_graph':
-        csr_graph = sklearn.neighbors.kneighbors_graph(X, n_neighbors,mode='distance')
-    if graph_type == 'rbf':
+def shortest_path_distance(X, graph_type="kneighbors_graph", n_neighbors=10):
+    if graph_type == "kneighbors_graph":
+        csr_graph = sklearn.neighbors.kneighbors_graph(X, n_neighbors, mode="distance")
+    if graph_type == "rbf":
         kernel = sklearn.metrics.pairwise.rbf_kernel(X)
         csr_graph = 1 - kernel
-    D = dijkstra(csr_graph,directed=False,return_predecessors=False, unweighted=False)
+    D = dijkstra(csr_graph, directed=False, return_predecessors=False, unweighted=False)
     return D
-
 
 
 ######## Factorized shortest path distance matrix for graphs
-def factorised_shortest_path_distance_kernel(X,num_connection,rank_rf=100,rank=100,tol=1e-3,seed=49):
+def factorised_shortest_path_distance_kernel(
+    X, num_connection, rank_rf=100, rank=100, tol=1e-3, seed=49
+):
     reg = np.shape(X)[1]
-    R = theoritical_R(X,X)
-    phi_X = Feature_Map_Gaussian(X,reg,R=R,num_samples=rank_rf,seed=seed)
-    kernel = np.dot(phi_X,phi_X.T)
+    R = theoritical_R(X, X)
+    phi_X = Feature_Map_Gaussian(X, reg, R=R, num_samples=rank_rf, seed=seed)
+    kernel = np.dot(phi_X, phi_X.T)
     rescale = np.max(kernel)
     csr_graph = rescale - kernel
-    csr_graph = k_smallest_by_row(csr_graph,k=num_connection)
-    D = factorized_shortest_path(csr_graph, rank, tol=tol, seed=seed+10)
+    csr_graph = k_smallest_by_row(csr_graph, k=num_connection)
+    D = factorized_shortest_path(csr_graph, rank, tol=tol, seed=seed + 10)
     return D
-
 
 
 ## Here k is the number of connectivity allowed
 ## Here rank_cost is the rank of the factorization of the distance matrix
 ## Here the cost must be a metric as we factorize it to compute the graph
-def k_connectivity_graph(data,k,cost,rank_cost=100,seed=49):
-    cost_factorized = lambda X,Y: factorized_distance_cost(X,Y,rank_cost,cost,C_init=False,tol=1e-1,seed=seed)
-    D11, D12 = cost_factorized(data,data)
-    D = np.dot(D11,D12)
-    graph_data = k_smallest_by_row(D,k=k)
+def k_connectivity_graph(data, k, cost, rank_cost=100, seed=49):
+    cost_factorized = lambda X, Y: factorized_distance_cost(
+        X, Y, rank_cost, cost, C_init=False, tol=1e-1, seed=seed
+    )
+    D11, D12 = cost_factorized(data, data)
+    D = np.dot(D11, D12)
+    graph_data = k_smallest_by_row(D, k=k)
     csr_graph = csr_matrix(graph_data)
 
     return csr_graph
 
 
-
-
 ## here csr_graph is the sparse connectivity graph
 # G = dijkstra(G_trans, directed=False, indices=[], return_predecessors=False, unweighted=False)
-def Learning_linear_subspace_shortest_path(csr_graph,U,tol=1e-3):
+def Learning_linear_subspace_shortest_path(csr_graph, U, tol=1e-3):
     rank, m = np.shape(U)
     U_sym = np.dot(U, U.T)  # k x k
     # d, v = np.linalg.eigh(U_sym)
@@ -942,7 +946,13 @@ def Learning_linear_subspace_shortest_path(csr_graph,U,tol=1e-3):
     ind_column = np.random.choice(m, size=int(rank / tol))
     U_trans = U[:, ind_column]  # k x k/tol
 
-    A_trans = dijkstra(csr_graph, directed=False, indices=ind_column, return_predecessors=False, unweighted=False)
+    A_trans = dijkstra(
+        csr_graph,
+        directed=False,
+        indices=ind_column,
+        return_predecessors=False,
+        unweighted=False,
+    )
     A_trans = A_trans.T
 
     A_trans = (1 / np.sqrt(int(rank / tol))) * A_trans
@@ -964,29 +974,46 @@ def factorized_shortest_path(csr_graph, rank, tol=1e-3, seed=49):
     i_ = np.random.randint(n, size=1)
     j_ = np.random.randint(m, size=1)
 
-
-    cost_trans_i = dijkstra(csr_graph, directed=False, indices=i_, return_predecessors=False, unweighted=False)
+    cost_trans_i = dijkstra(
+        csr_graph,
+        directed=False,
+        indices=i_,
+        return_predecessors=False,
+        unweighted=False,
+    )
     cost_trans_i = cost_trans_i.reshape(-1)
-    mean = np.mean(cost_trans_i ** 2)
-    cost_trans_j = dijkstra(csr_graph, directed=False, indices=j_, return_predecessors=False, unweighted=False)
+    mean = np.mean(cost_trans_i**2)
+    cost_trans_j = dijkstra(
+        csr_graph,
+        directed=False,
+        indices=j_,
+        return_predecessors=False,
+        unweighted=False,
+    )
     cost_trans_j = cost_trans_j.reshape(-1)
 
-    p_row = cost_trans_j ** 2 + cost_trans_i[j_] ** 2 + mean
+    p_row = cost_trans_j**2 + cost_trans_i[j_] ** 2 + mean
     p_row = p_row / np.sum(p_row)  # probability of size n
 
     # Compute S
     ind_row = np.random.choice(n, size=int(rank / tol), p=p_row.reshape(-1))
-    S = dijkstra(csr_graph, directed=False, indices=ind_row, return_predecessors=False, unweighted=False)
+    S = dijkstra(
+        csr_graph,
+        directed=False,
+        indices=ind_row,
+        return_predecessors=False,
+        unweighted=False,
+    )
 
     p_row_sub = p_row[ind_row]
     S = (S.T / np.sqrt(int(rank / tol) * p_row_sub)).T
 
-    norm_square_S = np.sum(S ** 2)
+    norm_square_S = np.sum(S**2)
     p_column = np.zeros(m)
     for j in range(m):
         p_column[j] = np.sum(S[:, j] ** 2) / norm_square_S
 
-    p_column = p_column / np.sum(p_column) # vector of size m
+    p_column = p_column / np.sum(p_column)  # vector of size m
     # Compute W
     ind_column = np.random.choice(m, size=int(rank / tol), p=p_column.reshape(-1))
     W = S[:, ind_column]  # k/tol x k/tol
@@ -998,13 +1025,13 @@ def factorized_shortest_path(csr_graph, rank, tol=1e-3, seed=49):
     U = u[:, :rank]  # k/tol x k
     U_trans = np.dot(W.T, U)  # k/tol x k
 
-    norm_U = np.sum(U_trans ** 2, axis=0)
+    norm_U = np.sum(U_trans**2, axis=0)
     norm_U = np.sqrt(norm_U)
 
     U = np.dot(S.T, U)  # m x k
     U = U / norm_U
 
     # Compute V
-    V = Learning_linear_subspace_shortest_path(csr_graph, U.T,tol=tol)
+    V = Learning_linear_subspace_shortest_path(csr_graph, U.T, tol=tol)
 
     return V, U.T
