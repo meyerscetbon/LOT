@@ -2,13 +2,104 @@ import utils
 import numpy as np
 import time
 from sklearn.cluster import KMeans
-from sklearn import preprocessing
 import scipy
 
 
 def KL(A, B):
     Ratio_trans = np.log(A) - np.log(B)
     return np.sum(A * Ratio_trans)
+
+
+# Here cost is a function
+# Here we have assumed that to compute each entries of thecost matrix it takes O(d)
+def UpdatePlans(X, Y, Z, a, b, reg, cost, max_iter=1000, delta=1e-9, lam=0):
+
+    C1 = cost(Z, X)  # d * n * r
+    C1 = C1 / C1.max()
+    K1 = np.exp(-C1 / reg)  # size: r x n
+
+    C2 = cost(Z, Y)  # d * m * r
+    C2 = C2 / C2.max()
+    K2 = np.exp(-C2 / reg)  # size: r x m
+
+    r = np.shape(Z)[0]
+    u1, u2 = np.ones(r), np.ones(r)
+    v1, v2 = np.ones(np.shape(a)[0]), np.ones(np.shape(b)[0])
+
+    v1_trans = np.dot(K1.T, u1)  # r * n
+    v2_trans = np.dot(K2.T, u2)  # r * m
+
+    w = np.ones(r) / r  # r
+
+    err = 1
+    n_iter = 0
+    while n_iter < max_iter:
+        u1_prev, v1_prev = u1, v1
+        u2_prev, v2_prev = u2, v2
+        w_prev = w
+        if err > delta:
+            n_iter = n_iter + 1
+
+            # Update v1, v2
+            v1 = a / v1_trans  # n
+            u1_trans = np.dot(K1, v1)  # n * r
+
+            v2 = b / v2_trans  # m
+            u2_trans = np.dot(K2, v2)  # m * r
+
+            # Update w
+            w = (u1 * u1_trans * u2 * u2_trans) ** (1 / 2)  # 4 * r
+
+            # Update u1, u2
+            u1 = w / u1_trans  # r
+            u2 = w / u2_trans  # r
+
+            # Update the error
+            v1_trans = np.dot(K1.T, u1)  # n * r
+            err_1 = np.sum(np.abs(v1 * v1_trans - a))
+            v2_trans = np.dot(K2.T, u2)  # n * r
+            err_2 = np.sum(np.abs(v2 * v2_trans - b))
+            err = err_1 + err_2
+
+            if (
+                np.any(np.isnan(u1))
+                or np.any(np.isnan(v1))
+                or np.any(np.isnan(u2))
+                or np.any(np.isnan(v2))
+                or np.any(np.isinf(u1))
+                or np.any(np.isinf(v1))
+                or np.any(np.isinf(u2))
+                or np.any(np.isinf(v2))
+            ):
+                # we have reached the machine precision
+                # come back to previous solution and quit loop
+                print("Warning: numerical errors UpdatePlans at iteration", n_iter)
+                u1, v1 = u1_prev, v1_prev
+                u2, v2 = u2_prev, v2_prev
+                w = w_prev
+                break
+        else:
+            gamma_1 = u1.reshape((-1, 1)) * K1 * v1.reshape((1, -1))
+            gamma_2 = u2.reshape((-1, 1)) * K2 * v2.reshape((1, -1))
+            n, m, d = np.shape(X)[0], np.shape(Y)[0], np.shape(Z)[1]
+            count_op = (
+                (n_iter + 1) * (2 * n * r + 2 * m * r + 6 * r + n + m)
+                + (d + 2) * n * r
+                + (d + 2) * m * r
+                + r
+            )
+            return gamma_1, gamma_2, w, count_op
+
+    gamma_1 = u1.reshape((-1, 1)) * K1 * v1.reshape((1, -1))
+    gamma_2 = u2.reshape((-1, 1)) * K2 * v2.reshape((1, -1))
+    n, m, d = np.shape(X)[0], np.shape(Y)[0], np.shape(Z)[1]
+    count_op = (
+        (n_iter + 1) * (2 * n * r + 2 * m * r + 6 * r + n + m)
+        + (d + 2) * n * r
+        + (d + 2) * m * r
+        + r
+    )
+    return gamma_1, gamma_2, w, count_op
 
 
 def LR_Dykstra_Sin(K1, K2, K3, a, b, alpha, max_iter=1000, delta=1e-9, lam=0):
@@ -322,10 +413,9 @@ def LR_IBP_Sin(K1, K2, K3, a, b, max_iter=1000, delta=1e-9, lam=0):
     return Q, R, g, count_op
 
 
-def self_quad_lot_md_fixed_marginal(
+def self_quad_lot_md(
     C,
     a,
-    g,
     rank,
     gamma_0=1,
     LSE="False",
@@ -350,6 +440,9 @@ def self_quad_lot_md_fixed_marginal(
 
     # rescale the cost
     C = C / C.max()
+
+    # Init g
+    g = np.ones(rank) / rank
 
     # Init Q
     np.random.seed(seed_init)
@@ -457,11 +550,10 @@ def self_quad_lot_md_fixed_marginal(
     return acc[-1], np.array(acc), np.array(times), np.array(list_num_op), Q
 
 
-def self_lin_lot_md_fixed_marginal(
+def self_lin_lot_md(
     C1,
     C2,
     a,
-    g,
     rank,
     gamma_0=1,
     LSE="True",
@@ -487,6 +579,9 @@ def self_lin_lot_md_fixed_marginal(
     # rescale the costs
     C1 = C1 / np.sqrt(C1.max())
     C2 = C2 / np.sqrt(C2.max())
+
+    # Init g
+    g = np.ones(rank) / rank
 
     # Init Q
     np.random.seed(seed_init)
@@ -657,10 +752,9 @@ def Quad_LOT_MD(
     #### Initialization #####
     if Init == "general_kmeans":
         g = np.ones(rank) / rank
-        res_q, acc_q, times_q, list_num_op_q, Q = self_quad_lot_md_fixed_marginal(
+        res_q, acc_q, times_q, list_num_op_q, Q = self_quad_lot_md(
             C_X,
             a,
-            g,
             rank,
             gamma_0=gamma_0,
             LSE=False,
@@ -673,11 +767,9 @@ def Quad_LOT_MD(
             lam_Sin=lam_IBP,
             time_out=time_out / 5,
         )
-
-        res_r, acc_r, times_r, list_num_op_r, R = self_quad_lot_md_fixed_marginal(
+        res_r, acc_r, times_r, list_num_op_r, R = self_quad_lot_md(
             C_Y,
             b,
-            g,
             rank,
             gamma_0=gamma_0,
             LSE=False,
@@ -692,60 +784,7 @@ def Quad_LOT_MD(
         )
 
         num_op = num_op + list_num_op_q[-1] + list_num_op_r[-1]
-
     if Init == "kmeans":
-        g = np.ones(rank) / rank
-        kmeans_X = KMeans(n_clusters=rank, random_state=0).fit(X)
-        num_iter_kmeans_X = kmeans_X.n_iter_
-        Z_X = kmeans_X.cluster_centers_
-        C_trans_X = utils.Square_Euclidean_Distance(X, Z_X)
-        C_trans_X = C_trans_X / C_trans_X.max()
-        results = utils.Sinkhorn(
-            C_trans_X,
-            reg_init,
-            a,
-            g,
-            max_iter=max_iter_IBP,
-            delta=delta_IBP,
-            lam=lam_IBP,
-            time_out=1e100,
-        )
-        res, arr_acc_X, arr_times_X, Q, arr_num_op_X = results
-
-        # lb_X = preprocessing.LabelBinarizer()
-        # lb_X.fit(kmeans_X.labels_)
-        # Q = lb_X.transform(kmeans_X.labels_)
-        # Q = (Q.T * a).T
-
-        kmeans_Y = KMeans(n_clusters=rank, random_state=0).fit(Y)
-        num_iter_kmeans_Y = kmeans_Y.n_iter_
-        Z_Y = kmeans_Y.cluster_centers_
-        C_trans_Y = utils.Square_Euclidean_Distance(Y, Z_Y)
-        C_trans_Y = C_trans_Y / C_trans_Y.max()
-        results = utils.Sinkhorn(
-            C_trans_Y,
-            reg_init,
-            b,
-            g,
-            max_iter=max_iter_IBP,
-            delta=delta_IBP,
-            lam=lam_IBP,
-            time_out=1e100,
-        )
-        res, arr_acc_Y, arr_times_Y, R, arr_num_op_Y = results
-
-        # lb_Y = preprocessing.LabelBinarizer()
-        # lb_Y.fit(kmeans_Y.labels_)
-        # R = lb_Y.transform(kmeans_Y.labels_)
-        # R = (R.T * b).T
-
-        num_op = (
-            num_op
-            + (num_iter_kmeans_X + np.shape(arr_acc_X)[0]) * rank * np.shape(X)[0]
-            + (num_iter_kmeans_Y + np.shape(arr_acc_Y)[0]) * rank * np.shape(Y)[0]
-        )
-
-    if Init == "kmeans_modified":
         ## Init with K-means
         g = np.ones(rank) / rank
         kmeans = KMeans(n_clusters=rank, random_state=0).fit(X)
@@ -753,7 +792,7 @@ def Quad_LOT_MD(
         num_iter_kmeans = kmeans.n_iter_
         num_op = num_op + num_iter_kmeans * rank * np.shape(X)[0] + rank
         reg_init = reg_init
-        gamma1, gamma2, g, count_op_Barycenter = utils.UpdatePlans(
+        gamma1, gamma2, g, count_op_Barycenter = UpdatePlans(
             X,
             Y,
             Z,
@@ -1052,11 +1091,10 @@ def Lin_LOT_MD(
     #### Initialization #####
     if Init == "general_kmeans":
         g = np.ones(rank) / rank
-        res_q, acc_q, times_q, list_num_op_q, Q = self_lin_lot_md_fixed_marginal(
+        res_q, acc_q, times_q, list_num_op_q, Q = self_lin_lot_md(
             C_X_1,
             C_X_2,
             a,
-            g,
             rank,
             gamma_0=gamma_0,
             LSE=False,
@@ -1069,11 +1107,10 @@ def Lin_LOT_MD(
             lam_Sin=lam_IBP,
             time_out=1e100,
         )
-        res_r, acc_r, times_r, list_num_op_r, R = self_lin_lot_md_fixed_marginal(
+        res_r, acc_r, times_r, list_num_op_r, R = self_lin_lot_md(
             C_Y_1,
             C_Y_2,
             b,
-            g,
             rank,
             gamma_0=gamma_0,
             LSE=False,
@@ -1088,66 +1125,15 @@ def Lin_LOT_MD(
         )
         num_op = num_op + list_num_op_q[-1] + list_num_op_r[-1]
 
+    ## Init with K-means
     if Init == "kmeans":
-        g = np.ones(rank) / rank
-        kmeans_X = KMeans(n_clusters=rank, random_state=0).fit(X)
-        num_iter_kmeans_X = kmeans_X.n_iter_
-        Z_X = kmeans_X.cluster_centers_
-        C_trans_X = utils.Square_Euclidean_Distance(X, Z_X)
-        C_trans_X = C_trans_X / C_trans_X.max()
-        results = utils.Sinkhorn(
-            C_trans_X,
-            reg_init,
-            a,
-            g,
-            max_iter=max_iter_IBP,
-            delta=delta_IBP,
-            lam=lam_IBP,
-            time_out=1e100,
-        )
-        res, arr_acc_X, arr_times_X, Q, arr_num_op_X = results
-
-        # lb_X = preprocessing.LabelBinarizer()
-        # lb_X.fit(kmeans_X.labels_)
-        # Q = lb_X.transform(kmeans_X.labels_)
-        # Q = (Q.T * a).T
-
-        kmeans_Y = KMeans(n_clusters=rank, random_state=0).fit(Y)
-        num_iter_kmeans_Y = kmeans_Y.n_iter_
-        Z_Y = kmeans_Y.cluster_centers_
-        C_trans_Y = utils.Square_Euclidean_Distance(Y, Z_Y)
-        C_trans_Y = C_trans_Y / C_trans_Y.max()
-        results = utils.Sinkhorn(
-            C_trans_Y,
-            reg_init,
-            b,
-            g,
-            max_iter=max_iter_IBP,
-            delta=delta_IBP,
-            lam=lam_IBP,
-            time_out=1e100,
-        )
-        res, arr_acc_Y, arr_times_Y, R, arr_num_op_Y = results
-
-        # lb_Y = preprocessing.LabelBinarizer()
-        # lb_Y.fit(kmeans_Y.labels_)
-        # R = lb_Y.transform(kmeans_Y.labels_)
-        # R = (R.T * b).T
-
-        num_op = (
-            num_op
-            + (num_iter_kmeans_X + np.shape(arr_acc_X)[0]) * rank * np.shape(X)[0]
-            + (num_iter_kmeans_Y + np.shape(arr_acc_Y)[0]) * rank * np.shape(Y)[0]
-        )
-
-    if Init == "kmeans_modified":
         g = np.ones(rank) / rank
         kmeans = KMeans(n_clusters=rank, random_state=0).fit(X)
         Z = kmeans.cluster_centers_
         num_iter_kmeans = kmeans.n_iter_
         num_op = num_op + r + num_iter_kmeans * r * n
         reg_init = reg_init
-        gamma1, gamma2, g, count_op_Barycenter = utils.UpdatePlans(
+        gamma1, gamma2, g, count_op_Barycenter = UpdatePlans(
             X,
             Y,
             Z,
@@ -1359,7 +1345,7 @@ def Lin_LOT_MD(
             err_2 = ((1 / gamma) ** 2) * (KL(R, R_prev) + KL(R_prev, R))
             err_3 = ((1 / gamma) ** 2) * (KL(g, g_prev) + KL(g_prev, g))
             criterion = err_1 + err_2 + err_3
-            # print('Sinkhorn: ' + str(criterion))
+            # print(criterion)
 
             if niter > 1:
                 if criterion > delta / 1e-1:

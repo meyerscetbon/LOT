@@ -1,3 +1,6 @@
+import sys
+
+sys.path.append("./LOT_github/")
 import numpy as np
 import utils
 import LinSinkhorn

@@ -270,98 +270,6 @@ def UpdateHubs(X, Y, gamma_1, gamma_2):
 
 
 # Here cost is a function
-# Here we have assumed that to compute each entries of thecost matrix it takes O(d)
-def UpdatePlans(X, Y, Z, a, b, reg, cost, max_iter=1000, delta=1e-9, lam=0):
-
-    C1 = cost(Z, X)  # d * n * r
-    C1 = C1 / C1.max()
-    K1 = np.exp(-C1 / reg)  # size: r x n
-
-    C2 = cost(Z, Y)  # d * m * r
-    C2 = C2 / C2.max()
-    K2 = np.exp(-C2 / reg)  # size: r x m
-
-    r = np.shape(Z)[0]
-    u1, u2 = np.ones(r), np.ones(r)
-    v1, v2 = np.ones(np.shape(a)[0]), np.ones(np.shape(b)[0])
-
-    v1_trans = np.dot(K1.T, u1)  # r * n
-    v2_trans = np.dot(K2.T, u2)  # r * m
-
-    w = np.ones(r) / r  # r
-
-    err = 1
-    n_iter = 0
-    while n_iter < max_iter:
-        u1_prev, v1_prev = u1, v1
-        u2_prev, v2_prev = u2, v2
-        w_prev = w
-        if err > delta:
-            n_iter = n_iter + 1
-
-            # Update v1, v2
-            v1 = a / v1_trans  # n
-            u1_trans = np.dot(K1, v1)  # n * r
-
-            v2 = b / v2_trans  # m
-            u2_trans = np.dot(K2, v2)  # m * r
-
-            # Update w
-            w = (u1 * u1_trans * u2 * u2_trans) ** (1 / 2)  # 4 * r
-
-            # Update u1, u2
-            u1 = w / u1_trans  # r
-            u2 = w / u2_trans  # r
-
-            # Update the error
-            v1_trans = np.dot(K1.T, u1)  # n * r
-            err_1 = np.sum(np.abs(v1 * v1_trans - a))
-            v2_trans = np.dot(K2.T, u2)  # n * r
-            err_2 = np.sum(np.abs(v2 * v2_trans - b))
-            err = err_1 + err_2
-
-            if (
-                np.any(np.isnan(u1))
-                or np.any(np.isnan(v1))
-                or np.any(np.isnan(u2))
-                or np.any(np.isnan(v2))
-                or np.any(np.isinf(u1))
-                or np.any(np.isinf(v1))
-                or np.any(np.isinf(u2))
-                or np.any(np.isinf(v2))
-            ):
-                # we have reached the machine precision
-                # come back to previous solution and quit loop
-                print("Warning: numerical errors UpdatePlans at iteration", n_iter)
-                u1, v1 = u1_prev, v1_prev
-                u2, v2 = u2_prev, v2_prev
-                w = w_prev
-                break
-        else:
-            gamma_1 = u1.reshape((-1, 1)) * K1 * v1.reshape((1, -1))
-            gamma_2 = u2.reshape((-1, 1)) * K2 * v2.reshape((1, -1))
-            n, m, d = np.shape(X)[0], np.shape(Y)[0], np.shape(Z)[1]
-            count_op = (
-                (n_iter + 1) * (2 * n * r + 2 * m * r + 6 * r + n + m)
-                + (d + 2) * n * r
-                + (d + 2) * m * r
-                + r
-            )
-            return gamma_1, gamma_2, w, count_op
-
-    gamma_1 = u1.reshape((-1, 1)) * K1 * v1.reshape((1, -1))
-    gamma_2 = u2.reshape((-1, 1)) * K2 * v2.reshape((1, -1))
-    n, m, d = np.shape(X)[0], np.shape(Y)[0], np.shape(Z)[1]
-    count_op = (
-        (n_iter + 1) * (2 * n * r + 2 * m * r + 6 * r + n + m)
-        + (d + 2) * n * r
-        + (d + 2) * m * r
-        + r
-    )
-    return gamma_1, gamma_2, w, count_op
-
-
-# Here cost is a function
 def UpdatePlans_LSE(X, Y, Z, a, b, reg, cost, max_iter=1000, delta=1e-9, lam=0):
 
     C1 = cost(Z, X)
@@ -780,52 +688,36 @@ def LR_Dykstra(K1, K2, K3, gamma, a, b, alpha, max_iter=1000, delta=1e-9, lam=0)
 
 
 # Approximate the kernel k(x,y) = exp(TU/\varepsilon)
-def RF_Approx(T, U, reg, num_samples=100, seed=49):
-    R = np.minimum(theoritical_R(T, U.T), 100)
-    A = Feature_Map_Gaussian(T, reg, R, num_samples=num_samples, seed=seed)
-    B = Feature_Map_Gaussian(U.T, reg, R, num_samples=num_samples, seed=seed).T
+def RF_Approx(T,U,reg,num_samples=100,seed=49):
+    R = np.minimum(theoritical_R(T,U.T),100)
+    A = Feature_Map_Gaussian(T,reg,R,num_samples=num_samples,seed=seed)
+    B = Feature_Map_Gaussian(U.T,reg,R,num_samples=num_samples,seed=seed).T
 
     n, d = np.shape(T)
     m, d = np.shape(U.T)
 
-    num_op = (
-        d * n * num_samples
-        + 6 * n * num_samples
-        + num_samples * d
-        + n * d
-        + num_samples
-        + n
-    )
-    num_op = (
-        num_op
-        + d * m * num_samples
-        + 6 * m * num_samples
-        + num_samples * d
-        + m * d
-        + num_samples
-        + m
-    )
+    num_op =  d * n * num_samples + 6 * n * num_samples + num_samples * d + n * d + num_samples  + n
+    num_op = num_op + d * m * num_samples + 6 * m * num_samples + num_samples * d + m * d + num_samples  + m
     num_op = num_op + n * d + m * d + n + m
 
     return A, B, num_op
 
-
-def Nys_approx(X, Y, reg, rank, seed=49, stable=1e-10):
-    n, d = np.shape(X)
-    m, d = np.shape(Y)
+def Nys_approx(X,Y,reg,rank,seed=49,stable=1e-10):
+    n,d = np.shape(X)
+    m,d = np.shape(Y)
     n_tot = n + m
-    Z = np.concatenate((X, Y), axis=0)
+    Z = np.concatenate((X,Y),axis=0)
 
     rank_trans = int(np.minimum(rank, n_tot))
 
     np.random.seed(seed)
-    ind = np.random.choice(n_tot, rank_trans, replace=False)
+    ind = np.random.choice(n_tot,rank_trans,replace=False)
     ind = np.sort(ind)
 
-    Z_1 = Z[ind, :]
-    A = np.exp(np.dot(Z_1, Z_1.T) / reg)
+    Z_1 = Z[ind,:]
+    A = np.exp(np.dot(Z_1, Z_1.T) / reg )
     A = A + stable * np.eye(rank_trans)
-    V = np.exp(np.dot(Z, Z_1.T) / reg)
+    V = np.exp(np.dot(Z, Z_1.T) / reg )
 
     return A, V
 
