@@ -1,3 +1,6 @@
+import sys
+
+sys.path.append("./LOT_github/")
 import numpy as np
 import utils
 import LinSinkhorn
@@ -73,7 +76,7 @@ ranks = [3, 10, 50, 100]
 
 for rank in ranks:
     ## Linear version
-    results = LinSinkhorn.Lin_LOT_MD(
+    results = LinSinkhorn.apply_lin_lr_lot(
         X,
         Y,
         a,
@@ -81,25 +84,11 @@ for rank in ranks:
         rank,
         cost,
         cost_factorized,
-        reg=0,
-        alpha=1e-10,
         gamma_0=10,
-        max_iter=1000,
-        delta=1e-3,
-        time_out=200,
-        Init="kmeans",
-        seed_init=49,
-        C_init=False,
-        reg_init=1e-1,
-        gamma_init="rescale",
-        method="Dykstra",
-        max_iter_IBP=10000,
-        delta_IBP=1e-3,
-        lam_IBP=0,
         rescale_cost=True,
+        time_out=50,
     )
-
-    res, accs, times, num_ops, num_criterions, Q, R, g = results
+    res, Q, R, g = results
     P_LOT = np.dot(Q / g, R.T)
     v_min = min(np.min(P_LOT), v_min)
     v_max = max(np.max(P_LOT), v_max)

@@ -4,6 +4,7 @@ import time
 from sklearn.cluster import KMeans
 from sklearn import preprocessing
 import scipy
+import types
 
 
 def KL(A, B):
@@ -622,6 +623,7 @@ def Quad_LOT_MD(
     max_iter_IBP=10000,
     delta_IBP=1e-3,
     lam_IBP=0,
+    rescale_cost=True,
 ):
     num_op = 0
     acc = []
@@ -639,21 +641,26 @@ def Quad_LOT_MD(
 
     if C_init == False:
         C = cost(X, Y)
-        C = C / np.max(C)
-        C_X = cost(X, X)
-        C_X = C_X / C_X.max()
-        C_Y = cost(Y, Y)
-        C_Y = C_Y / C_Y.max()
+        if len(C) != 1:
+            print("Error: the cost function is not adapted")
+            return "Error"
+        else:
+            C_X = cost(X, X)
+            C_Y = cost(Y, Y)
+            if rescale_cost == True:
+                C = C / np.max(C)
+                C_X = C_X / C_X.max()
+                C_Y = C_Y / C_Y.max()
     else:
-        C, C_X, C_Y = cost
-        C, C_X, C_Y = C / C.max(), C_X / C_X.max(), C_Y / C_Y.max()
-
-    if len(C) == 2:
-        print("Error: cost not adapted")
-        return "Error"
+        if len(cost) != 3:
+            print("Error: cost not adapted")
+            return "Error"
+        else:
+            C, C_X, C_Y = cost
+            if rescale_cost == True:
+                C, C_X, C_Y = C / C.max(), C_X / C_X.max(), C_Y / C_Y.max()
 
     start = time.time()
-
     #### Initialization #####
     if Init == "general_kmeans":
         g = np.ones(rank) / rank
@@ -977,6 +984,63 @@ def Quad_LOT_MD(
     return acc[-1], np.array(acc), np.array(times), np.array(list_num_op), Q, R, g
 
 
+def apply_quad_lr_lot(
+    X, Y, a, b, rank, cost, gamma_0=10, rescale_cost=True, time_out=50
+):
+    if type(cost) == types.FunctionType:
+        acc, arr_acc, arr_times, arr_list_num_op, Q, R, g = Quad_LOT_MD(
+            X,
+            Y,
+            a,
+            b,
+            rank,
+            cost,
+            reg=0,
+            alpha=1e-10,
+            gamma_0=gamma_0,
+            max_iter=1000,
+            delta=1e-3,
+            time_out=time_out,
+            Init="kmeans",
+            seed_init=49,
+            C_init=False,
+            reg_init=1e-1,
+            gamma_init="rescale",
+            method="Dykstra",
+            max_iter_IBP=10000,
+            delta_IBP=1e-3,
+            lam_IBP=0,
+            rescale_cost=rescale_cost,
+        )
+    else:
+        acc, arr_acc, arr_times, arr_list_num_op, Q, R, g = Quad_LOT_MD(
+            X,
+            Y,
+            a,
+            b,
+            rank,
+            cost,
+            reg=0,
+            alpha=1e-10,
+            gamma_0=gamma_0,
+            max_iter=1000,
+            delta=1e-3,
+            time_out=time_out,
+            Init="kmeans",
+            seed_init=49,
+            C_init=True,
+            reg_init=1e-1,
+            gamma_init="rescale",
+            method="Dykstra",
+            max_iter_IBP=10000,
+            delta_IBP=1e-3,
+            lam_IBP=0,
+            rescale_cost=rescale_cost,
+        )
+
+    return acc, Q, R, g
+
+
 # If C_init = True: cost_factorized = (C1, C2, C_X_1, C_X_2, C_Y_1, C_Y_2)
 # If C_init = False: cost_factorized is a function
 # Init = 'trivial', 'random', 'kmeans', 'general_kmeans'
@@ -1022,28 +1086,31 @@ def Lin_LOT_MD(
 
     if C_init == False:
         C = cost_factorized(X, Y)
-        if len(C) == 2:
+        if len(C) != 2:
+            print("Error: cost function is not adapted")
+            return Error
+        else:
             C1, C2 = C
             if rescale_cost == True:
                 C1, C2 = C1 / np.sqrt(np.max(C1)), C2 / np.sqrt(np.max(C2))
 
-        C_X = cost_factorized(X, X)
-        if len(C) == 2:
-            C_X_1, C_X_2 = C_X
+            C_X_1, C_X_2 = cost_factorized(X, X)
             if rescale_cost == True:
                 C_X_1, C_X_2 = C_X_1 / np.sqrt(np.max(C_X_1)), C_X_2 / np.sqrt(
                     np.max(C_X_2)
                 )
 
-        C_Y = cost_factorized(Y, Y)
-        if len(C) == 2:
-            C_Y_1, C_Y_2 = C_Y
+            C_Y_1, C_Y_2 = cost_factorized(Y, Y)
             if rescale_cost == True:
                 C_Y_1, C_Y_2 = C_Y_1 / np.sqrt(np.max(C_Y_1)), C_Y_2 / np.sqrt(
                     np.max(C_Y_2)
                 )
     else:
-        (C1, C2, C_X_1, C_X_2, C_Y_1, C_Y_2) = cost_factorized
+        if len(cost_factorized) != 6:
+            print("Error: soem cost matrices are missing")
+            return "Error"
+        else:
+            (C1, C2, C_X_1, C_X_2, C_Y_1, C_Y_2) = cost_factorized
 
     n, d = np.shape(C1)
     start = time.time()
@@ -1398,6 +1465,65 @@ def Lin_LOT_MD(
         R,
         g,
     )
+
+
+def apply_lin_lr_lot(
+    X, Y, a, b, rank, cost, cost_factorized, gamma_0=10, rescale_cost=True, time_out=50
+):
+    if type(cost_factorized) == types.FunctionType:
+        acc, arr_acc, arr_times, arr_list_num_op, arr_critetion, Q, R, g = Lin_LOT_MD(
+            X,
+            Y,
+            a,
+            b,
+            rank,
+            cost,
+            cost_factorized,
+            reg=0,
+            alpha=1e-10,
+            gamma_0=gamma_0,
+            max_iter=1000,
+            delta=1e-3,
+            time_out=time_out,
+            Init="kmeans",
+            seed_init=49,
+            C_init=False,
+            reg_init=1e-1,
+            gamma_init="rescale",
+            method="Dykstra",
+            max_iter_IBP=10000,
+            delta_IBP=1e-3,
+            lam_IBP=0,
+            rescale_cost=rescale_cost,
+        )
+    else:
+        acc, arr_acc, arr_times, arr_list_num_op, arr_critetion, Q, R, g = Lin_LOT_MD(
+            X,
+            Y,
+            a,
+            b,
+            rank,
+            cost,
+            cost_factorized,
+            reg=0,
+            alpha=1e-10,
+            gamma_0=gamma_0,
+            max_iter=1000,
+            delta=1e-3,
+            time_out=time_out,
+            Init="kmeans",
+            seed_init=49,
+            C_init=True,
+            reg_init=1e-1,
+            gamma_init="rescale",
+            method="Dykstra",
+            max_iter_IBP=10000,
+            delta_IBP=1e-3,
+            lam_IBP=0,
+            rescale_cost=rescale_cost,
+        )
+
+    return acc, Q, R, g
 
 
 def clustering_lin_LOT(
