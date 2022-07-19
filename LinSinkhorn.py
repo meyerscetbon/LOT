@@ -852,7 +852,7 @@ def Quad_LOT_MD(
 
             K1_trans_0 = np.dot(C, R)  # n * m * r
             grad_Q = K1_trans_0 / g
-            if reg != 0:
+            if reg != 0.0:
                 grad_Q = grad_Q + reg * np.log(Q)
             if gamma_init == "rescale":
                 # norm_1 = np.linalg.norm(grad_Q)**2
@@ -860,7 +860,7 @@ def Quad_LOT_MD(
 
             K2_trans_0 = np.dot(C.T, Q)  # m * n * r
             grad_R = K2_trans_0 / g
-            if reg != 0:
+            if reg != 0.0:
                 grad_R = grad_R + reg * np.log(R)
             if gamma_init == "rescale":
                 # norm_2 = np.linalg.norm(grad_R)**2
@@ -869,7 +869,7 @@ def Quad_LOT_MD(
             omega = np.diag(np.dot(Q.T, K1_trans_0))  # r * n * r
             C3_trans = omega / (g**2)
             grad_g = -omega / (g**2)
-            if reg != 0:
+            if reg != 0.0:
                 grad_g = grad_g + reg * np.log(g)
 
             if gamma_init == "rescale":
